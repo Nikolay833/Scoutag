@@ -4,14 +4,14 @@
 #include <WiFi.h>
 
 /* ===== PINS ===== */
-#define TFT_CS   23
-#define TFT_DC   21
-#define TFT_RST  5
-#define TFT_BL   32
-#define TFT_MOSI 25
-#define TFT_MISO 27
-#define TFT_SCK  13
-#define BUTTON_PIN 34
+#define TFT_CS   5      // VSPI_CS
+#define TFT_DC   16
+#define TFT_RST  17
+#define TFT_BL   4
+#define TFT_MOSI 23     // VSPI_MOSI
+#define TFT_MISO 19     // VSPI_MISO
+#define TFT_SCK  18     // VSPI_CLK
+#define BUTTON_PIN 15
 
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 
@@ -3518,7 +3518,7 @@ const uint8_t* animationFrames[] = {
 void goToSleep() {
   tft.fillScreen(ST77XX_BLACK);
   digitalWrite(TFT_BL, LOW);
-  esp_sleep_enable_ext0_wakeup(GPIO_NUM_34, 0); // Wake on GND (Button press)
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_15, 0); // Wake on GND (Button press)
   esp_deep_sleep_start();
 }
 
@@ -3539,7 +3539,7 @@ void drawSprite(int16_t x, int16_t y, const uint8_t *bitmap, int16_t w, int16_t 
 
 void setup() {
   pinMode(TFT_BL, OUTPUT);
-  pinMode(BUTTON_PIN, INPUT); // GPIO 34 requires external 10K pull-up to 3.3V
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
 
   // Initialize SPI and TFT FIRST (before anything that might call goToSleep)
   SPI.begin(TFT_SCK, TFT_MISO, TFT_MOSI);
