@@ -4,13 +4,13 @@
 #include <WiFi.h>
 
 /* ===== PINS ===== */
-#define TFT_CS   5
-#define TFT_DC   16
-#define TFT_RST  17
-#define TFT_BL   15
-#define TFT_MOSI 23
-#define TFT_MISO 19
-#define TFT_SCK  18
+#define TFT_CS   23
+#define TFT_DC   21
+#define TFT_RST  5
+#define TFT_BL   32
+#define TFT_MOSI 25
+#define TFT_MISO 27
+#define TFT_SCK  13
 #define BUTTON_PIN 0
 
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
