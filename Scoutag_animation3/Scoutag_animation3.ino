@@ -11,7 +11,7 @@
 #define TFT_MOSI 25
 #define TFT_MISO 27
 #define TFT_SCK  13
-#define BUTTON_PIN 0
+#define BUTTON_PIN 34
 
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 
@@ -3518,7 +3518,7 @@ const uint8_t* animationFrames[] = {
 void goToSleep() {
   tft.fillScreen(ST77XX_BLACK);
   digitalWrite(TFT_BL, LOW);
-  esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, 0); // Wake on GND (Button press)
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_34, 0); // Wake on GND (Button press)
   esp_deep_sleep_start();
 }
 
@@ -3539,7 +3539,7 @@ void drawSprite(int16_t x, int16_t y, const uint8_t *bitmap, int16_t w, int16_t 
 
 void setup() {
   pinMode(TFT_BL, OUTPUT);
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(BUTTON_PIN, INPUT); // GPIO 34 requires external 10K pull-up to 3.3V
 
   // Initialize SPI and TFT FIRST (before anything that might call goToSleep)
   SPI.begin(TFT_SCK, TFT_MISO, TFT_MOSI);
