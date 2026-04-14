@@ -4,14 +4,14 @@
 #include <WiFi.h>
 
 /* ===== PINS ===== */
-#define TFT_CS   5
-#define TFT_DC   16
-#define TFT_RST  17
-#define TFT_BL   15
-#define TFT_MOSI 23
-#define TFT_MISO 19
-#define TFT_SCK  18
-#define BUTTON_PIN 0
+#define TFT_CS   5      // VSPI_CS
+#define TFT_DC   16     // RX2 (used as GPIO)
+#define TFT_RST  17     // TX2 (used as GPIO)
+#define TFT_BL   4
+#define TFT_MOSI 23     // VSPI_MOSI
+#define TFT_MISO 19     // VSPI_MISO
+#define TFT_SCK  18     // VSPI_CLK
+#define BUTTON_PIN 27
 
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 
@@ -3518,7 +3518,7 @@ const uint8_t* animationFrames[] = {
 void goToSleep() {
   tft.fillScreen(ST77XX_BLACK);
   digitalWrite(TFT_BL, LOW);
-  esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, 0); // Wake on GND (Button press)
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_27, 0); // Wake on GND (Button press)
   esp_deep_sleep_start();
 }
 
@@ -3658,7 +3658,7 @@ void loop() {
 
 /* ===== EVIL TWIN LOGIC ===== */
 
-void runEvilTwinDetection() {
+   void runEvilTwinDetection() {
   int n = WiFi.scanNetworks();
   bool realThreatFound = false; // Track if we actually find a score > 0
 
@@ -3668,30 +3668,62 @@ void runEvilTwinDetection() {
 
   for (int x = 0; x < n; x++) {
     for (int y = x + 1; y < n; y++) {
-      if (WiFi.SSID(x) == WiFi.SSID(y)) {
-        
+
+      // --- Fuzzy comparison (same style as reference code) ---
+      String nx = normalizeSSID(WiFi.SSID(x));
+      String ny = normalizeSSID(WiFi.SSID(y));
+
+      // SSIDs are "matching" if 0, 1, or 2 characters differ
+      // (and the name isn't empty, to avoid matching hidden networks)
+      bool ssidMatch  = (nx.length() > 0) && (nameDiff(nx, ny) <= 2);
+
+      // BSSIDs are "matching" if 0, 1, or 2 MAC bytes differ
+      bool bssidMatch = (macDiff(WiFi.BSSIDstr(x), WiFi.BSSIDstr(y)) <= 2);
+
+      if (ssidMatch || bssidMatch) {
+
         // Calculate scores
         int scoreX = 0, scoreY = 0;
+
+        // --- Open encryption ---
         if (WiFi.encryptionType(x) == WIFI_AUTH_OPEN) scoreX += 30;
         if (WiFi.encryptionType(y) == WIFI_AUTH_OPEN) scoreY += 30;
+
+        // --- Strong RSSI (likely physically close rogue) ---
         if (WiFi.RSSI(x) > -40) scoreX += 15;
         if (WiFi.RSSI(y) > -40) scoreY += 15;
 
-        // --- THE LOGIC FIX ---
-        // Only show results if there is an actual suspicious behavior
+        // --- Channel checks ---
+        int chX = WiFi.channel(x);
+        int chY = WiFi.channel(y);
+
+        bool chXStandard = (chX == 1 || chX == 6 || chX == 11);
+        bool chYStandard = (chY == 1 || chY == 6 || chY == 11);
+        if (!chXStandard) scoreX += 10;
+        if (!chYStandard) scoreY += 10;
+
+        if (chX != chY) {
+          scoreX += 10;
+          scoreY += 10;
+        }
+
+        // --- Only show if there's actually suspicious behavior ---
         if (scoreX > 0 || scoreY > 0) {
           realThreatFound = true;
 
-          // Clear text area ONLY
           tft.fillRect(160, 0, 160, 170, ST77XX_BLACK);
-          
+
           tft.setTextColor(ST77XX_RED);
           tft.setCursor(168, 40);
           tft.println("TWIN FOUND!");
-          
+
           tft.setTextColor(ST77XX_WHITE);
           tft.setCursor(168, 65);
-          tft.println(WiFi.SSID(x));
+          if (ssidMatch) {
+            tft.println(WiFi.SSID(x));        // show one of the similar SSIDs
+          } else {
+            tft.println(WiFi.BSSIDstr(x));    // show one of the similar BSSIDs
+          }
 
           tft.setCursor(168, 90);
           tft.setTextColor(scoreX > scoreY ? ST77XX_RED : ST77XX_WHITE);
