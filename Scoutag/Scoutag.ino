@@ -4,14 +4,14 @@
 #include <WiFi.h>
 
 /* ===== PINS ===== */
-#define TFT_CS   5      // VSPI_CS
-#define TFT_DC   16     // RX2 (used as GPIO)
-#define TFT_RST  17     // TX2 (used as GPIO)
-#define TFT_BL   4
-#define TFT_MOSI 23     // VSPI_MOSI
-#define TFT_MISO 19     // VSPI_MISO
-#define TFT_SCK  18     // VSPI_CLK
-#define BUTTON_PIN 27
+#define TFT_CS   5
+#define TFT_DC   16
+#define TFT_RST  17
+#define TFT_BL   15
+#define TFT_MOSI 23
+#define TFT_MISO 19
+#define TFT_SCK  18
+#define BUTTON_PIN 0
 
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 
@@ -3656,44 +3656,79 @@ void loop() {
   }
 }
 
-/* ===== EVIL TWIN LOGIC ===== */
+// =====================================================================
+// Evil Twin Detection helpers + main function
+// Paste this block in place of the old runEvilTwinDetection().
+// =====================================================================
 
-   void runEvilTwinDetection() {
+// --- Clean SSID (remove symbols & make lowercase) ---
+String normalizeSSID(String s) {
+  String r = "";
+  for (int i = 0; i < s.length(); i++) {
+    char c = s[i];
+    if (isalnum(c)) r += (char)tolower(c);
+  }
+  return r;
+}
+
+// --- Convert MAC string ("AA:BB:CC:DD:EE:FF") to byte array ---
+void macToBytes(String macStr, byte mac[6]) {
+  for (int i = 0; i < 6; i++) {
+    mac[i] = (byte) strtol(macStr.substring(i * 3, i * 3 + 2).c_str(), NULL, 16);
+  }
+}
+
+// --- Count how many MAC address bytes differ ---
+int macDiff(String m1s, String m2s) {
+  byte m1[6], m2[6];
+  macToBytes(m1s, m1);
+  macToBytes(m2s, m2);
+  int diff = 0;
+  for (int i = 0; i < 6; i++) {
+    if (m1[i] != m2[i]) diff++;
+  }
+  return diff;
+}
+
+// --- Count character differences between two SSIDs ---
+int nameDiff(String a, String b) {
+  int lenA = (int)a.length();
+  int lenB = (int)b.length();
+  int len = min(lenA, lenB);
+  int diff = abs(lenA - lenB);
+  for (int i = 0; i < len; i++) {
+    if (a[i] != b[i]) diff++;
+  }
+  return diff;
+}
+
+// --- Main detection ---
+void runEvilTwinDetection() {
   int n = WiFi.scanNetworks();
-  bool realThreatFound = false; // Track if we actually find a score > 0
+  bool realThreatFound = false;
 
-  // 1. Prepare the screen (Clear text area once)
   tft.fillRect(160, 0, 160, 170, ST77XX_BLACK); 
   drawSprite(10, 20, animationFrames[15], 140, 140, ST77XX_WHITE, ST77XX_BLACK);
 
   for (int x = 0; x < n; x++) {
     for (int y = x + 1; y < n; y++) {
 
-      // --- Fuzzy comparison (same style as reference code) ---
       String nx = normalizeSSID(WiFi.SSID(x));
       String ny = normalizeSSID(WiFi.SSID(y));
 
-      // SSIDs are "matching" if 0, 1, or 2 characters differ
-      // (and the name isn't empty, to avoid matching hidden networks)
       bool ssidMatch  = (nx.length() > 0) && (nameDiff(nx, ny) <= 2);
-
-      // BSSIDs are "matching" if 0, 1, or 2 MAC bytes differ
       bool bssidMatch = (macDiff(WiFi.BSSIDstr(x), WiFi.BSSIDstr(y)) <= 2);
 
       if (ssidMatch || bssidMatch) {
 
-        // Calculate scores
         int scoreX = 0, scoreY = 0;
 
-        // --- Open encryption ---
         if (WiFi.encryptionType(x) == WIFI_AUTH_OPEN) scoreX += 30;
         if (WiFi.encryptionType(y) == WIFI_AUTH_OPEN) scoreY += 30;
 
-        // --- Strong RSSI (likely physically close rogue) ---
         if (WiFi.RSSI(x) > -40) scoreX += 15;
         if (WiFi.RSSI(y) > -40) scoreY += 15;
 
-        // --- Channel checks ---
         int chX = WiFi.channel(x);
         int chY = WiFi.channel(y);
 
@@ -3707,7 +3742,6 @@ void loop() {
           scoreY += 10;
         }
 
-        // --- Only show if there's actually suspicious behavior ---
         if (scoreX > 0 || scoreY > 0) {
           realThreatFound = true;
 
@@ -3720,9 +3754,9 @@ void loop() {
           tft.setTextColor(ST77XX_WHITE);
           tft.setCursor(168, 65);
           if (ssidMatch) {
-            tft.println(WiFi.SSID(x));        // show one of the similar SSIDs
+            tft.println(WiFi.SSID(x));
           } else {
-            tft.println(WiFi.BSSIDstr(x));    // show one of the similar BSSIDs
+            tft.println(WiFi.BSSIDstr(x));
           }
 
           tft.setCursor(168, 90);
