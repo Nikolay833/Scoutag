@@ -3538,6 +3538,7 @@ void drawSprite(int16_t x, int16_t y, const uint8_t *bitmap, int16_t w, int16_t 
 }
 
 void setup() {
+	Serial.begin(115200);
   pinMode(TFT_BL, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
@@ -3702,13 +3703,39 @@ int nameDiff(String a, String b) {
   return diff;
 }
 
-// --- Main detection ---
 void runEvilTwinDetection() {
+  Serial.println();
+  Serial.println(F("=================================="));
+  Serial.println(F("  Evil Twin Detection — START"));
+  Serial.println(F("=================================="));
+
+  Serial.print(F("Scanning for WiFi networks... "));
   int n = WiFi.scanNetworks();
+  Serial.print(n);
+  Serial.println(F(" found."));
+
+  Serial.println(F("\n--- Networks in range ---"));
+  for (int i = 0; i < n; i++) {
+    Serial.print(F("["));
+    Serial.print(i);
+    Serial.print(F("] SSID: '"));
+    Serial.print(WiFi.SSID(i));
+    Serial.print(F("'  BSSID: "));
+    Serial.print(WiFi.BSSIDstr(i));
+    Serial.print(F("  Ch: "));
+    Serial.print(WiFi.channel(i));
+    Serial.print(F("  RSSI: "));
+    Serial.print(WiFi.RSSI(i));
+    Serial.print(F(" dBm  Enc: "));
+    Serial.println(WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? F("OPEN") : F("Encrypted"));
+  }
+
   bool realThreatFound = false;
 
   tft.fillRect(160, 0, 160, 170, ST77XX_BLACK); 
   drawSprite(10, 20, animationFrames[15], 140, 140, ST77XX_WHITE, ST77XX_BLACK);
+
+  Serial.println(F("\n--- Pairwise comparison ---"));
 
   for (int x = 0; x < n; x++) {
     for (int y = x + 1; y < n; y++) {
@@ -3716,34 +3743,111 @@ void runEvilTwinDetection() {
       String nx = normalizeSSID(WiFi.SSID(x));
       String ny = normalizeSSID(WiFi.SSID(y));
 
-      bool ssidMatch  = (nx.length() > 0) && (nameDiff(nx, ny) <= 2);
-      bool bssidMatch = (macDiff(WiFi.BSSIDstr(x), WiFi.BSSIDstr(y)) <= 2);
+      int nd = nameDiff(nx, ny);
+      int md = macDiff(WiFi.BSSIDstr(x), WiFi.BSSIDstr(y));
+
+      bool ssidMatch  = (nx.length() > 0) && (nd <= 2);
+      bool bssidMatch = (md <= 2);
 
       if (ssidMatch || bssidMatch) {
 
+        Serial.println();
+        Serial.print(F("Comparing ["));
+        Serial.print(x);
+        Serial.print(F("] vs ["));
+        Serial.print(y);
+        Serial.println(F("]"));
+
+        Serial.print(F("  SSID 1 : '")); Serial.print(WiFi.SSID(x)); Serial.println(F("'"));
+        Serial.print(F("  SSID 2 : '")); Serial.print(WiFi.SSID(y)); Serial.println(F("'"));
+        Serial.print(F("  BSSID 1: ")); Serial.println(WiFi.BSSIDstr(x));
+        Serial.print(F("  BSSID 2: ")); Serial.println(WiFi.BSSIDstr(y));
+        Serial.print(F("  Ch 1/2 : ")); Serial.print(WiFi.channel(x));
+        Serial.print(F(" / "));         Serial.println(WiFi.channel(y));
+        Serial.print(F("  RSSI1/2: ")); Serial.print(WiFi.RSSI(x));
+        Serial.print(F(" / "));         Serial.print(WiFi.RSSI(y)); Serial.println(F(" dBm"));
+        Serial.print(F("  Enc1/2 : "));
+        Serial.print(WiFi.encryptionType(x) == WIFI_AUTH_OPEN ? F("OPEN") : F("Enc"));
+        Serial.print(F(" / "));
+        Serial.println(WiFi.encryptionType(y) == WIFI_AUTH_OPEN ? F("OPEN") : F("Enc"));
+
+        Serial.print(F("  Name diff: ")); Serial.print(nd);
+        Serial.print(F("  |  MAC diff: ")); Serial.println(md);
+        Serial.print(F("  Match reason: "));
+        if (ssidMatch && bssidMatch) Serial.println(F("SSID + BSSID similar"));
+        else if (ssidMatch)          Serial.println(F("SSID similar"));
+        else                         Serial.println(F("BSSID similar"));
+
+        // ======== scores live inside this block ========
         int scoreX = 0, scoreY = 0;
 
-        if (WiFi.encryptionType(x) == WIFI_AUTH_OPEN) scoreX += 30;
-        if (WiFi.encryptionType(y) == WIFI_AUTH_OPEN) scoreY += 30;
+        // --- Score the match itself (SSID/BSSID similarity) ---
+        if (ssidMatch) {
+          int pts = (nd == 0) ? 20 : (nd == 1 ? 12 : 6);
+          scoreX += pts;
+          scoreY += pts;
+          Serial.print(F("  +")); Serial.print(pts);
+          Serial.print(F(" to both: SSIDs match (nameDiff="));
+          Serial.print(nd); Serial.println(F(")"));
+        }
 
-        if (WiFi.RSSI(x) > -40) scoreX += 15;
-        if (WiFi.RSSI(y) > -40) scoreY += 15;
+        if (bssidMatch) {
+          // md == 0 is just the same AP heard twice — not really a twin
+          int pts = (md == 1) ? 25 : (md == 2 ? 15 : 0);
+          if (pts > 0) {
+            scoreX += pts;
+            scoreY += pts;
+            Serial.print(F("  +")); Serial.print(pts);
+            Serial.print(F(" to both: BSSIDs nearly identical (macDiff="));
+            Serial.print(md); Serial.println(F(")"));
+          }
+        }
 
+        // --- Open encryption ---
+        if (WiFi.encryptionType(x) == WIFI_AUTH_OPEN) {
+          scoreX += 30;
+          Serial.println(F("  +30 to S1: network 1 is OPEN"));
+        }
+        if (WiFi.encryptionType(y) == WIFI_AUTH_OPEN) {
+          scoreY += 30;
+          Serial.println(F("  +30 to S2: network 2 is OPEN"));
+        }
+
+        // --- Strong RSSI ---
+        if (WiFi.RSSI(x) > -40) {
+          scoreX += 15;
+          Serial.println(F("  +15 to S1: RSSI 1 > -40 dBm (very close)"));
+        }
+        if (WiFi.RSSI(y) > -40) {
+          scoreY += 15;
+          Serial.println(F("  +15 to S2: RSSI 2 > -40 dBm (very close)"));
+        }
+
+        // --- Channel checks ---
         int chX = WiFi.channel(x);
         int chY = WiFi.channel(y);
-
         bool chXStandard = (chX == 1 || chX == 6 || chX == 11);
         bool chYStandard = (chY == 1 || chY == 6 || chY == 11);
-        if (!chXStandard) scoreX += 10;
-        if (!chYStandard) scoreY += 10;
-
+        if (!chXStandard) {
+          scoreX += 10;
+          Serial.print(F("  +10 to S1: non-standard channel (")); Serial.print(chX); Serial.println(F(")"));
+        }
+        if (!chYStandard) {
+          scoreY += 10;
+          Serial.print(F("  +10 to S2: non-standard channel (")); Serial.print(chY); Serial.println(F(")"));
+        }
         if (chX != chY) {
           scoreX += 10;
           scoreY += 10;
+          Serial.println(F("  +10 to both: channels differ between twins"));
         }
+
+        Serial.print(F("  FINAL  S1 = ")); Serial.print(scoreX);
+        Serial.print(F("   S2 = "));      Serial.println(scoreY);
 
         if (scoreX > 0 || scoreY > 0) {
           realThreatFound = true;
+          Serial.println(F("  >>> VERDICT: SUSPICIOUS — alerting on screen"));
 
           tft.fillRect(160, 0, 160, 170, ST77XX_BLACK);
 
@@ -3753,11 +3857,8 @@ void runEvilTwinDetection() {
 
           tft.setTextColor(ST77XX_WHITE);
           tft.setCursor(168, 65);
-          if (ssidMatch) {
-            tft.println(WiFi.SSID(x));
-          } else {
-            tft.println(WiFi.BSSIDstr(x));
-          }
+          if (ssidMatch) tft.println(WiFi.SSID(x));
+          else           tft.println(WiFi.BSSIDstr(x));
 
           tft.setCursor(168, 90);
           tft.setTextColor(scoreX > scoreY ? ST77XX_RED : ST77XX_WHITE);
@@ -3768,18 +3869,24 @@ void runEvilTwinDetection() {
           tft.print("S2: "); tft.println(scoreY);
 
           delay(5000); 
+        } else {
+          Serial.println(F("  >>> VERDICT: benign (both scores 0) — ignoring"));
         }
       }
     }
   }
 
-  // Only show "No Threats" if no pair had a score > 0
-  if (!realThreatFound) { 
+  if (!realThreatFound) {
+    Serial.println(F("\nNo real threats found."));
     tft.fillRect(160, 0, 160, 170, ST77XX_BLACK);
-		drawSprite(10, 20, animationFrames[1], 140, 140, ST77XX_WHITE, ST77XX_BLACK);
+    drawSprite(10, 20, animationFrames[1], 140, 140, ST77XX_WHITE, ST77XX_BLACK);
     tft.setCursor(168, 55); 
     tft.setTextColor(ST77XX_WHITE);
     tft.println("NO THREATS.");
     delay(2000);
   }
+
+  Serial.println(F("\n==================================" ));
+  Serial.println(F("  Evil Twin Detection — DONE"));
+  Serial.println(F("==================================\n"));
 }
