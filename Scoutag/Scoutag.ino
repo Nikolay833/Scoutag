@@ -30,12 +30,6 @@ struct OUI {
   const char* label;
   bool isThreat;
 };
-OUI vendors[] = {
-  {"24:0A:C4", "Expressif/ESP", true},
-  {"B8:27:EB", "RaspberryPi", true},
-  {"00:0C:42", "Ubiquiti", false},
-  {"F4:F2:6D", "TP-Link", false}
-};
 
 const uint8_t lcd_text[] PROGMEM = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -3647,7 +3641,7 @@ String normalizeSSID(String s) {
   String r = "";
   for (int i = 0; i < s.length(); i++) {
     char c = s[i];
-    if (isalnum(c)) r += (char)tolower(c);
+    if (isaln um(c)) r += (char)tolower(c);
   }
   return r;
 }
