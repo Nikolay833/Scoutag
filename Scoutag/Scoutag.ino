@@ -3704,7 +3704,7 @@ int nameDiff(String a, String b) {
 }
 
 void runEvilTwinDetection() {
-  Serial.println();
+	Serial.println();
   Serial.println(F("=================================="));
   Serial.println(F("  Evil Twin Detection — START"));
   Serial.println(F("=================================="));
