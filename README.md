@@ -1,27 +1,23 @@
 # Scoutag
---------Scoutag---------------------------------------
-
 A portable ESP32 device that scans for evil twin WiFi attacks, with an animated dog mascot on a ST7789 TFT display.
 
-Hardware--------------------------------------
-ESP32
-ST7789 SPI TFT 170×320px
-DFRobot MP2636 Power Booster & Charger
-LiPo battery
-Tactile button (GPIO 0)
+## Hardware
+ESP32<br>
+ST7789 SPI TFT 170×320px<br>
+DFRobot MP2636 Power Booster & Charger<br>
+LiPo battery<br>
+Tactile button (GPIO 0)<br>
 
-Controls--------------------------------------
-Action
-Result
-Hold 2 seconds
-Power ON
-Short press
-Start WiFi scan
-Hold 2 seconds (while on)
-Power OFF
+## Controls
+Hold 2 seconds---
+Power ON<br>
+Short press---
+Start WiFi scan<br>
+Hold 2 seconds (while on)---
+Power OFF<br>
 
 
-How it works---------------------------------
+## How it works
 Scans nearby networks and compares them in pairs. Flags suspicious matches based on:
 Similar SSID name
 Nearly identical MAC address
