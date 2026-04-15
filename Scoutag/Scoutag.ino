@@ -3635,7 +3635,7 @@ String normalizeSSID(String s) {
   String r = "";
   for (int i = 0; i < s.length(); i++) {
     char c = s[i];
-    if (isaln um(c)) r += (char)tolower(c);
+    if (isalnum(c)) r += (char)tolower(c);
   }
   return r;
 }
