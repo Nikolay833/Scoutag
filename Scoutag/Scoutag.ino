@@ -3498,7 +3498,7 @@ const uint8_t* animationFrames[] = {
 void goToSleep() {
   tft.fillScreen(ST77XX_BLACK);
   digitalWrite(TFT_BL, LOW);
-  esp_sleep_enable_ext0_wakeup(GPIO_NUM_27, 0);
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, 0);
   esp_deep_sleep_start();
 }
 
