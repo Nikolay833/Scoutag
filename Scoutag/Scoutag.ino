@@ -3850,6 +3850,7 @@ void runEvilTwinDetection() {
           Serial.println(F("  >>> VERDICT: SUSPICIOUS — alerting on screen"));
 
           tft.fillRect(160, 0, 160, 170, ST77XX_BLACK);
+					drawSprite(10, 20, animationFrames[1], 140, 140, ST77XX_WHITE, ST77XX_BLACK);
 
           tft.setTextColor(ST77XX_RED);
           tft.setCursor(168, 40);
