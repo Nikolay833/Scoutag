@@ -3496,10 +3496,12 @@ const uint8_t* animationFrames[] = {
 };
 
 void goToSleep() {
+	Serial.println(F(">>> Entering deep sleep..."));
   tft.fillScreen(ST77XX_BLACK);
   digitalWrite(TFT_BL, LOW);
   esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, 0);
   esp_deep_sleep_start();
+	Serial.println(F("!!! This line should never print."));
 }
 
 void drawSprite(int16_t x, int16_t y, const uint8_t *bitmap, int16_t w, int16_t h, uint16_t color, uint16_t bg) {
@@ -3657,6 +3659,20 @@ int macDiff(String m1s, String m2s) {
   return diff;
 }
 
+bool isLAA(const String& macStr) {
+  byte first = (byte) strtol(macStr.substring(0, 2).c_str(), NULL, 16);
+  return (first & 0x02) != 0;
+}
+
+int macDiffOUI(const String& m1s, const String& m2s) {
+  byte m1[6], m2[6];
+  macToBytes(m1s, m1);
+  macToBytes(m2s, m2);
+  int d = 0;
+  for (int i = 0; i < 3; i++) if (m1[i] != m2[i]) d++;
+  return d;
+}
+
 int nameDiff(String a, String b) {
   int lenA = (int)a.length();
   int lenB = (int)b.length();
@@ -3669,7 +3685,7 @@ int nameDiff(String a, String b) {
 }
 
 void runEvilTwinDetection() {
-	Serial.println();
+  Serial.println();
   Serial.println(F("=================================="));
   Serial.println(F("  Evil Twin Detection — START"));
   Serial.println(F("=================================="));
@@ -3755,7 +3771,6 @@ void runEvilTwinDetection() {
         }
 
         if (bssidMatch) {
-
           int pts = (md == 1) ? 25 : (md == 2 ? 15 : 0);
           if (pts > 0) {
             scoreX += pts;
@@ -3809,27 +3824,43 @@ void runEvilTwinDetection() {
           realThreatFound = true;
           Serial.println(F("  >>> VERDICT: SUSPICIOUS — alerting on screen"));
 
-          tft.fillRect(160, 0, 160, 170, ST77XX_BLACK);
-					drawSprite(10, 20, animationFrames[1], 140, 140, ST77XX_WHITE, ST77XX_BLACK);
+          // Imposter = higher-scoring side (tie → x)
+          int imposter = (scoreX >= scoreY) ? x : y;
+          String bImp  = WiFi.BSSIDstr(imposter);
 
-          tft.setTextColor(ST77XX_RED);
-          tft.setCursor(168, 40);
-          tft.println("TWIN FOUND!");
+          // Letter flags: S B O D
+          String flags = "[";
+          if (ssidMatch)                                       flags += "S ";
+          if (bssidMatch)                                      flags += "B ";
+          if (WiFi.encryptionType(imposter) == WIFI_AUTH_OPEN) flags += "O ";
+          if (abs(WiFi.RSSI(x) - WiFi.RSSI(y)) > 10)           flags += "D ";
+          flags.trim();
+          flags += "]";
 
-          tft.setTextColor(ST77XX_WHITE);
-          tft.setCursor(168, 65);
-          if (ssidMatch) tft.println(WiFi.SSID(x));
-          else           tft.println(WiFi.BSSIDstr(x));
+				// --- Screen ---
+				tft.fillRect(160, 0, 160, 170, ST77XX_BLACK);
+				drawSprite(10, 20, animationFrames[1], 140, 140, ST77XX_WHITE, ST77XX_BLACK);
 
-          tft.setCursor(168, 90);
-          tft.setTextColor(scoreX > scoreY ? ST77XX_RED : ST77XX_WHITE);
-          tft.print("S1: "); tft.println(scoreX);
+				tft.setTextColor(ST77XX_RED);
+				tft.setCursor(168, 40);
+				tft.println("EVIL TWIN");
 
-          tft.setCursor(168, 115);
-          tft.setTextColor(scoreY > scoreX ? ST77XX_RED : ST77XX_WHITE);
-          tft.print("S2: "); tft.println(scoreY);
+				tft.setTextColor(ST77XX_WHITE);
+				tft.setCursor(168, 90);
+				if (ssidMatch) tft.println(WiFi.SSID(imposter));
+				else           tft.println(bImp);
 
-          delay(5000);
+				// MAC: tall + narrow, one line, colons kept
+				tft.setTextSize(1, 2);
+				tft.setCursor(168, 100);
+				tft.println(bImp);
+
+				// Flags at full size 2 (same as headline/SSID)
+				tft.setTextSize(2);
+				tft.setCursor(168, 125);
+				tft.println(flags);
+
+				delay(5000);
         } else {
           Serial.println(F("  >>> VERDICT: benign (both scores 0) — ignoring"));
         }
@@ -3847,7 +3878,7 @@ void runEvilTwinDetection() {
     delay(2000);
   }
 
-  Serial.println(F("\n==================================" ));
+  Serial.println(F("\n=================================="));
   Serial.println(F("  Evil Twin Detection — DONE"));
   Serial.println(F("==================================\n"));
 }
