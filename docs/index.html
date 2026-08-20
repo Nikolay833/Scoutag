@@ -1,0 +1,1017 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scoutag</title>
+<meta name="description" content="A pocket-sized ESP32 watchdog that sniffs the air for evil twin Wi-Fi networks and barks on a 1-bit screen.">
+<link rel="icon" href="assets/frame01.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,600;0,700;1,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Silkscreen:wght@400;700&display=swap">
+<style>
+/* ---------------------------------------------------------------
+   Scoutag — a 1-bit device deserves a 1-bit page.
+   Everything is black and white except the one thing that matters:
+   a threat. Red is reserved for that, exactly as on the display.
+   --------------------------------------------------------------- */
+
+:root{
+  --ground:#E8EAE4;
+  --raised:#F4F6F0;
+  --sunken:#DCDFD6;
+  --line:#C7CCBF;
+  --line-soft:#D8DCD1;
+  --ink:#171A14;
+  --ink-2:#3C4238;
+  --muted:#5D6359;
+  --danger:#AF2A21;
+  --danger-soft:#F2DAD7;
+  --case:#101210;
+  --case-line:#2C302B;
+
+  --screen-bg:#000;
+  --screen-ink:#FFF;
+  --screen-red:#FF3B30;
+
+  --display:"Chakra Petch","Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --pixel:"Silkscreen",ui-monospace,monospace;
+
+  --gutter:clamp(1.25rem,4vw,3rem);
+  --measure:64ch;
+}
+
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0B0D0B;
+    --raised:#141613;
+    --sunken:#080908;
+    --line:#292D27;
+    --line-soft:#1E211D;
+    --ink:#E9ECE5;
+    --ink-2:#C2C7BE;
+    --muted:#939A8F;
+    --danger:#E5473C;
+    --danger-soft:#2A1512;
+    --case:#0A0C0A;
+    --case-line:#33382F;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0B0D0B;
+  --raised:#141613;
+  --sunken:#080908;
+  --line:#292D27;
+  --line-soft:#1E211D;
+  --ink:#E9ECE5;
+  --ink-2:#C2C7BE;
+  --muted:#939A8F;
+  --danger:#E5473C;
+  --danger-soft:#2A1512;
+  --case:#0A0C0A;
+  --case-line:#33382F;
+}
+
+*{box-sizing:border-box}
+
+html{-webkit-text-size-adjust:100%}
+
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:clamp(1rem,0.97rem + 0.15vw,1.0625rem);
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+
+img{max-width:100%;display:block}
+
+a{color:inherit;text-decoration-color:var(--line);text-underline-offset:.22em}
+a:hover{text-decoration-color:currentColor}
+
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:2px}
+
+.wrap{width:100%;max-width:1120px;margin-inline:auto;padding-inline:var(--gutter)}
+
+/* ---------- masthead ---------- */
+
+.masthead{
+  position:sticky;top:0;z-index:20;
+  background:color-mix(in srgb,var(--ground) 88%,transparent);
+  backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line-soft);
+}
+.masthead .wrap{
+  display:flex;align-items:center;gap:1.5rem;
+  min-height:60px;
+}
+.brand{display:flex;align-items:center;gap:.6rem;margin-right:auto;text-decoration:none}
+.brand img{
+  height:22px;width:auto;
+  filter:invert(1);   /* downscaled, so let it resample smoothly */
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .brand img{filter:none}}
+:root[data-theme="dark"] .brand img{filter:none}
+.brand .tag{
+  font-family:var(--mono);font-size:.6875rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);
+  padding-left:.7rem;border-left:1px solid var(--line);
+}
+@media (max-width:640px){.brand .tag{display:none}}
+
+.masthead nav{display:flex;gap:1.4rem;align-items:center}
+.masthead nav a{
+  font-family:var(--mono);font-size:.75rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);text-decoration:none;
+}
+.masthead nav a:hover{color:var(--ink)}
+@media (max-width:760px){.masthead nav a:not(.repo){display:none}}
+.masthead nav a.repo{
+  color:var(--ink);border:1px solid var(--line);
+  padding:.35rem .7rem;border-radius:2px;
+}
+.masthead nav a.repo:hover{background:var(--raised)}
+
+/* ---------- hero ---------- */
+
+.hero{padding:clamp(3rem,7vw,5.5rem) 0 clamp(2.5rem,5vw,4rem)}
+.hero .wrap{
+  display:grid;gap:clamp(2.5rem,5vw,4rem);
+  grid-template-columns:minmax(0,1.02fr) minmax(0,1fr);
+  align-items:center;
+}
+@media (max-width:900px){.hero .wrap{grid-template-columns:minmax(0,1fr)}}
+
+.eyebrow{
+  font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--muted);
+  display:flex;align-items:center;gap:.6rem;margin:0 0 1.4rem;
+}
+.eyebrow::before{
+  content:"";width:1.6rem;height:1px;background:var(--line);flex:none;
+}
+
+h1{
+  font-family:var(--display);font-weight:700;
+  font-size:clamp(2.6rem,1.4rem + 5.4vw,4.6rem);
+  line-height:.96;letter-spacing:-.015em;
+  margin:0 0 1.2rem;text-wrap:balance;
+}
+h1 em{font-style:italic;color:var(--ink)}
+
+.lede{
+  font-size:clamp(1.075rem,1rem + .4vw,1.3rem);
+  line-height:1.55;color:var(--ink-2);
+  max-width:34ch;margin:0 0 1.8rem;
+}
+.lede strong{font-weight:600;color:var(--ink)}
+
+.hero-meta{
+  display:flex;flex-wrap:wrap;gap:.5rem 1.75rem;
+  font-family:var(--mono);font-size:.8125rem;color:var(--muted);
+  padding-top:1.4rem;border-top:1px solid var(--line-soft);
+}
+.hero-meta b{font-weight:500;color:var(--ink)}
+
+/* ---------- the device ---------- */
+
+.device{display:flex;flex-direction:column;align-items:center;gap:1rem}
+
+.case{
+  width:100%;max-width:460px;
+  background:var(--case);
+  border:1px solid var(--case-line);
+  border-radius:14px;
+  padding:14px 14px 10px;
+  box-shadow:0 24px 50px -30px rgba(0,0,0,.7),0 1px 0 rgba(255,255,255,.05) inset;
+}
+
+.bezel{
+  container-type:inline-size;
+  background:#000;
+  border-radius:4px;
+  overflow:hidden;
+  box-shadow:0 0 22px -6px rgba(255,255,255,.14) inset;
+}
+
+.screen{
+  position:relative;
+  font-size:calc(100cqw / 320);   /* 1em === 1 device pixel */
+  width:320em;height:170em;
+  background:var(--screen-bg);
+  color:var(--screen-ink);
+  overflow:hidden;
+  transition:opacity .18s linear;
+}
+.screen[data-power="off"]{opacity:.07}
+
+.sprite{
+  position:absolute;left:10em;top:20em;width:140em;height:140em;
+  image-rendering:pixelated;
+}
+.sprite[hidden]{display:none}
+
+.boot{
+  position:absolute;left:5em;top:30em;width:311em;height:100em;
+  image-rendering:pixelated;
+}
+.boot[hidden]{display:none}
+
+.ln{position:absolute;white-space:nowrap}
+.ln span{
+  font-family:var(--pixel);
+  font-size:16em;line-height:1;
+  letter-spacing:.02em;
+  display:block;
+}
+.ln.small span{font-size:11em}
+.ln.alarm span{color:var(--screen-red)}
+.ln.big span{font-size:30em}
+
+.case-foot{
+  display:flex;align-items:center;gap:.8rem;
+  padding:10px 2px 0;
+}
+.silk{
+  font-family:var(--pixel);font-size:.5625rem;letter-spacing:.1em;
+  color:#6E766A;text-transform:uppercase;
+}
+.silk.dim{color:#464C43;margin-right:auto}
+
+.led{
+  width:6px;height:6px;border-radius:50%;
+  background:#2A2E29;flex:none;
+  box-shadow:none;transition:background .2s,box-shadow .2s;
+}
+.led[data-on="true"]{background:#8FE07A;box-shadow:0 0 7px #6ACB55}
+
+.btn-tactile{
+  appearance:none;
+  width:26px;height:26px;border-radius:50%;padding:0;flex:none;
+  cursor:pointer;
+  background:radial-gradient(circle at 34% 30%,#474E45,#1C201B);
+  border:1px solid #3C4239;
+  box-shadow:0 2px 0 #000;
+  transition:transform .06s linear,background .12s linear,box-shadow .06s linear;
+}
+.btn-tactile:hover{background:radial-gradient(circle at 34% 30%,#535B50,#232720)}
+.btn-tactile:active,.btn-tactile[data-held="true"]{transform:translateY(2px);box-shadow:0 0 0 #000}
+
+.device-hint{
+  font-family:var(--mono);font-size:.75rem;color:var(--muted);
+  text-align:center;max-width:44ch;line-height:1.55;margin:0;
+}
+.device-hint kbd{
+  font-family:var(--mono);font-size:.72rem;
+  border:1px solid var(--line);border-radius:3px;
+  padding:.05em .35em;color:var(--ink);
+}
+.device-status{
+  display:flex;align-items:baseline;gap:.5rem;justify-content:center;
+  font-family:var(--mono);font-size:.78rem;color:var(--ink-2);
+  max-width:46ch;text-align:center;margin:0;line-height:1.5;
+}
+.device-status::before{
+  content:"›";color:var(--danger);flex:none;
+}
+
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---------- sections ---------- */
+
+section{padding:clamp(3rem,6vw,5rem) 0;border-top:1px solid var(--line-soft)}
+
+.sec-head{margin-bottom:2.5rem}
+.sec-head h2{
+  font-family:var(--display);font-weight:700;
+  font-size:clamp(1.6rem,1.2rem + 1.5vw,2.35rem);
+  line-height:1.08;letter-spacing:-.01em;margin:0;text-wrap:balance;
+}
+.sec-head p{
+  color:var(--muted);max-width:var(--measure);margin:.9rem 0 0;
+}
+
+p,li{max-width:var(--measure)}
+.prose p+p{margin-top:1.1rem}
+
+/* pipeline — a real sequence, so it is numbered */
+.pipeline{
+  list-style:none;padding:0;margin:0;
+  display:grid;gap:1px;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  background:var(--line-soft);
+  border:1px solid var(--line-soft);
+}
+@media (max-width:820px){.pipeline{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:480px){.pipeline{grid-template-columns:minmax(0,1fr)}}
+.pipeline li{
+  background:var(--raised);padding:1.4rem 1.3rem 1.5rem;max-width:none;
+}
+.pipeline .n{
+  font-family:var(--mono);font-size:.6875rem;letter-spacing:.14em;
+  color:var(--muted);display:block;margin-bottom:.75rem;
+}
+.pipeline h3{
+  font-family:var(--display);font-weight:600;font-size:1.0625rem;
+  margin:0 0 .45rem;letter-spacing:.005em;
+}
+.pipeline p{font-size:.9375rem;color:var(--ink-2);margin:0;line-height:1.55}
+
+.split{
+  display:grid;gap:clamp(2rem,4vw,3.25rem);
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  align-items:start;
+}
+@media (max-width:860px){.split{grid-template-columns:minmax(0,1fr)}}
+
+/* tables */
+.table-scroll{overflow-x:auto;border:1px solid var(--line-soft);background:var(--raised)}
+table{border-collapse:collapse;width:100%;min-width:420px;font-size:.9375rem}
+caption{
+  text-align:left;font-family:var(--mono);font-size:.6875rem;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  padding:.9rem 1.1rem;border-bottom:1px solid var(--line-soft);
+}
+th,td{padding:.7rem 1.1rem;text-align:left;vertical-align:top;border-bottom:1px solid var(--line-soft)}
+tbody tr:last-child td{border-bottom:0}
+th{
+  font-family:var(--mono);font-weight:500;font-size:.72rem;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+}
+td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.num{color:var(--ink);font-weight:500}
+td small{display:block;color:var(--muted);font-size:.8125rem;line-height:1.4}
+.scope{
+  font-family:var(--mono);font-size:.72rem;color:var(--muted);
+  white-space:nowrap;
+}
+
+/* serial console */
+.console{
+  background:var(--sunken);
+  border:1px solid var(--line-soft);
+  overflow-x:auto;
+}
+.console-bar{
+  display:flex;gap:.6rem;align-items:center;
+  padding:.6rem 1rem;border-bottom:1px solid var(--line-soft);
+  font-family:var(--mono);font-size:.6875rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);
+}
+.console pre{
+  margin:0;padding:1.1rem 1.2rem;
+  font-family:var(--mono);font-size:.78rem;line-height:1.7;
+  color:var(--ink-2);white-space:pre;
+}
+.console b{color:var(--ink);font-weight:500}
+.console .plus{color:var(--ink);font-weight:500}
+.console .bad{color:var(--danger);font-weight:500}
+
+/* flag legend */
+.flags{list-style:none;padding:0;margin:1.5rem 0 0;display:grid;gap:.55rem}
+.flags li{display:flex;gap:.9rem;align-items:baseline;max-width:none}
+.flags code{
+  font-family:var(--pixel);font-size:.875rem;
+  border:1px solid var(--line);padding:.15em .5em;
+  color:var(--ink);flex:none;min-width:2.1rem;text-align:center;
+}
+.flags span{font-size:.9375rem;color:var(--ink-2)}
+
+/* spec list */
+.specs{list-style:none;padding:0;margin:0;border-top:1px solid var(--line-soft)}
+.specs li{
+  display:flex;flex-wrap:wrap;gap:.4rem 1.5rem;justify-content:space-between;
+  padding:.85rem 0;border-bottom:1px solid var(--line-soft);max-width:none;
+}
+.specs .part{font-weight:500}
+.specs .role{font-family:var(--mono);font-size:.8125rem;color:var(--muted);text-align:right}
+
+/* steps */
+ol.steps{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:1.4rem}
+ol.steps li{
+  counter-increment:s;position:relative;padding-left:2.6rem;max-width:var(--measure);
+}
+ol.steps li::before{
+  content:counter(s,decimal-leading-zero);
+  position:absolute;left:0;top:.1em;
+  font-family:var(--mono);font-size:.75rem;color:var(--muted);
+}
+ol.steps h3{font-family:var(--display);font-weight:600;font-size:1.0625rem;margin:0 0 .3rem}
+ol.steps p{margin:0;font-size:.9375rem;color:var(--ink-2)}
+code.inline{
+  font-family:var(--mono);font-size:.85em;
+  background:var(--raised);border:1px solid var(--line-soft);
+  padding:.08em .35em;border-radius:2px;
+}
+
+/* mascot strip */
+.moods{
+  display:grid;gap:1px;background:var(--line-soft);
+  border:1px solid var(--line-soft);
+  grid-template-columns:repeat(4,minmax(0,1fr));
+}
+@media (max-width:700px){.moods{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.mood{background:var(--raised);padding:1.25rem 1rem 1.35rem;text-align:center}
+.mood .cell{
+  background:#000;border-radius:2px;padding:8px;margin-bottom:.9rem;
+  display:flex;align-items:center;justify-content:center;
+}
+.mood img{width:100%;max-width:120px;image-rendering:pixelated}
+.mood h3{font-family:var(--display);font-weight:600;font-size:.9375rem;margin:0 0 .25rem}
+.mood p{font-family:var(--mono);font-size:.75rem;color:var(--muted);margin:0;line-height:1.5;max-width:none}
+
+/* caveats */
+.caveats{list-style:none;padding:0;margin:0;display:grid;gap:1rem}
+.caveats li{
+  padding-left:1.4rem;position:relative;color:var(--ink-2);font-size:.9375rem;
+}
+.caveats li::before{
+  content:"";position:absolute;left:0;top:.62em;
+  width:.5rem;height:1px;background:var(--danger);
+}
+.caveats b{color:var(--ink);font-weight:600}
+
+.note{
+  border:1px solid var(--line);
+  border-left:2px solid var(--danger);
+  background:var(--raised);
+  padding:1.1rem 1.25rem;
+  font-size:.9375rem;color:var(--ink-2);
+  max-width:var(--measure);
+}
+.note b{color:var(--ink)}
+
+/* footer */
+footer{
+  border-top:1px solid var(--line-soft);
+  padding:3rem 0 4rem;
+}
+footer .wrap{display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:space-between;align-items:flex-end}
+footer p{font-family:var(--mono);font-size:.78rem;color:var(--muted);margin:0;max-width:46ch;line-height:1.7}
+footer a{color:var(--ink)}
+footer img{height:20px;width:auto;filter:invert(1);opacity:.75}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) footer img{filter:none}}
+:root[data-theme="dark"] footer img{filter:none}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <img src="assets/wordmark.png" alt="Scoutag">
+      <span class="tag">Evil twin detector</span>
+    </a>
+    <nav>
+      <a href="#how">How it decides</a>
+      <a href="#hardware">Hardware</a>
+      <a href="#build">Build one</a>
+      <a class="repo" href="https://github.com/Nikolay833/Scoutag">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <div class="hero">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow">ESP32 · 170×320 TFT · one button</p>
+        <h1>A pocket dog that <em>barks at fake Wi-Fi.</em></h1>
+        <p class="lede">Scoutag listens to the networks around you, compares them in pairs, and puts a number on how much one of them is <strong>pretending to be another</strong>. The verdict shows up on a 1-bit screen, delivered by a dog.</p>
+        <div class="hero-meta">
+          <span><b>Detects</b> evil twin access points</span>
+          <span><b>Transmits</b> nothing, ever</span>
+          <span><b>Runs on</b> a LiPo cell</span>
+        </div>
+      </div>
+
+      <div class="device">
+        <div class="case">
+          <div class="bezel">
+            <div class="screen" id="screen" data-power="off" role="img" aria-label="Scoutag display — hold the button to power on">
+              <img class="boot" id="boot" src="assets/wordmark.png" alt="" hidden>
+              <img class="sprite" id="sprite" src="assets/frame01.png" alt="" hidden>
+              <div id="lines"></div>
+            </div>
+          </div>
+          <div class="case-foot">
+            <span class="silk">Scoutag</span>
+            <span class="silk dim">ESP32 · ST7789</span>
+            <span class="led" id="led" data-on="false"></span>
+            <button class="btn-tactile" id="press" aria-describedby="hint">
+              <span class="sr">Device button on GPIO 0 — press to scan, hold two seconds to power on or off</span>
+            </button>
+          </div>
+        </div>
+        <p class="device-hint" id="hint">Hold the button <kbd>2s</kbd> to wake it. One short press starts a scan.</p>
+        <p class="device-status" aria-live="polite"><span id="status">Powered off.</span></p>
+      </div>
+    </div>
+  </div>
+
+  <section id="what">
+    <div class="wrap">
+      <div class="split">
+        <div>
+          <div class="sec-head">
+            <p class="eyebrow">The problem</p>
+            <h2>An evil twin is a copy of a network you trust.</h2>
+          </div>
+          <div class="prose">
+            <p>Someone stands up an access point with the café's name on it, leaves it open, and puts it closer to you than the real one. Your phone sees a familiar SSID with a strong signal and joins. Everything you send now goes through a stranger's box first.</p>
+            <p>Nothing about that is visible in a Wi-Fi picker — it shows a name and a bar chart, and the fake one usually wins on both. The difference lives one layer down: in the MAC addresses, the channel numbers, the encryption flags and the signal strengths that the picker hides.</p>
+            <p>Scoutag is a way to look at that layer without opening a laptop. Press the button, and the dog sniffs.</p>
+          </div>
+        </div>
+        <div>
+          <div class="moods">
+            <div class="mood">
+              <div class="cell"><img src="assets/frame01.png" alt="Pixel dog sitting up, alert" loading="lazy"></div>
+              <h3>Awake</h3>
+              <p>Waiting for a press</p>
+            </div>
+            <div class="mood">
+              <div class="cell"><img src="assets/frame18.png" alt="Pixel dog with its nose to the ground" loading="lazy"></div>
+              <h3>Sniffing</h3>
+              <p>Scanning the band</p>
+            </div>
+            <div class="mood">
+              <div class="cell"><img src="assets/frame14.png" alt="Pixel dog curled up asleep with Z's" loading="lazy"></div>
+              <h3>Asleep</h3>
+              <p>ESP32 deep sleep</p>
+            </div>
+            <div class="mood">
+              <div class="cell"><img src="assets/frame09.png" alt="Pixel dog lying down mid-animation" loading="lazy"></div>
+              <h3>Turning in</h3>
+              <p>Goodbye sequence</p>
+            </div>
+          </div>
+          <p class="device-hint" style="text-align:left;max-width:none;margin-top:1rem">Every frame on this page is the firmware's own sprite data, 140×140 pixels, one bit each.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Detection</p>
+        <h2>How it decides something is a twin</h2>
+        <p>A single scan, then every network compared against every other one. Pairs that look related get scored; each side of the pair carries its own score, and the higher one is named the imposter.</p>
+      </div>
+
+      <ol class="pipeline">
+        <li>
+          <span class="n">STEP 01</span>
+          <h3>Scan</h3>
+          <p>One passive sweep of the 2.4 GHz band. SSID, BSSID, channel, RSSI and encryption for everything in range.</p>
+        </li>
+        <li>
+          <span class="n">STEP 02</span>
+          <h3>Pair</h3>
+          <p>Two networks are worth comparing if their names are near-identical once stripped to letters and digits, or if their MAC addresses differ in two bytes or fewer.</p>
+        </li>
+        <li>
+          <span class="n">STEP 03</span>
+          <h3>Score</h3>
+          <p>Each suspicious trait adds points. Some are shared by the pair, some land on one network only — being open, being loud, sitting off-channel.</p>
+        </li>
+        <li>
+          <span class="n">STEP 04</span>
+          <h3>Bark</h3>
+          <p>The higher-scoring side is shown on screen with its name, its MAC and a row of letter flags saying why.</p>
+        </li>
+      </ol>
+
+      <div class="split" style="margin-top:clamp(2.5rem,5vw,3.5rem)">
+        <div>
+          <div class="table-scroll">
+            <table>
+              <caption>Scoring</caption>
+              <thead>
+                <tr><th>Signal</th><th class="num">Points</th><th>Goes to</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Names match after normalising<small>Exact / off by one / off by two characters</small></td>
+                  <td class="num">+20 / +12 / +6</td>
+                  <td><span class="scope">both</span></td>
+                </tr>
+                <tr>
+                  <td>MAC addresses nearly identical<small>Differ in one byte / two bytes</small></td>
+                  <td class="num">+25 / +15</td>
+                  <td><span class="scope">both</span></td>
+                </tr>
+                <tr>
+                  <td>Network is open<small>No encryption at all</small></td>
+                  <td class="num">+30</td>
+                  <td><span class="scope">that one</span></td>
+                </tr>
+                <tr>
+                  <td>Signal above −40 dBm<small>Close enough to be in the room</small></td>
+                  <td class="num">+15</td>
+                  <td><span class="scope">that one</span></td>
+                </tr>
+                <tr>
+                  <td>Channel outside 1, 6 or 11<small>Consumer gear rarely picks anything else</small></td>
+                  <td class="num">+10</td>
+                  <td><span class="scope">that one</span></td>
+                </tr>
+                <tr>
+                  <td>The two sit on different channels<small>One name, two radios, two channels</small></td>
+                  <td class="num">+10</td>
+                  <td><span class="scope">both</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="device-hint" style="text-align:left;max-width:none;margin-top:1rem">Higher score, stronger suspicion. There is no threshold and no certainty — the number tells you where to look.</p>
+        </div>
+
+        <div>
+          <div class="console">
+            <div class="console-bar"><span>Serial · 115200 baud</span></div>
+<pre><b>--- Pairwise comparison ---</b>
+
+Comparing [3] vs [7]
+  SSID 1 : 'CoffeeHouse WiFi'
+  SSID 2 : 'CoffeeHouse_WiFi'
+  BSSID 1: A4:2B:8C:11:0D:6E
+  BSSID 2: A4:2B:8C:11:0D:7F
+  Ch 1/2 : 6 / 9
+  RSSI1/2: -63 / -38 dBm
+  Enc1/2 : Enc / OPEN
+  Name diff: 0  |  MAC diff: 2
+  Match reason: SSID + BSSID similar
+  <span class="plus">+20</span> to both: SSIDs match (nameDiff=0)
+  <span class="plus">+15</span> to both: BSSIDs nearly identical (macDiff=2)
+  <span class="plus">+30</span> to S2: network 2 is OPEN
+  <span class="plus">+15</span> to S2: RSSI 2 &gt; -40 dBm (very close)
+  <span class="plus">+10</span> to S2: non-standard channel (9)
+  <span class="plus">+10</span> to both: channels differ between twins
+  FINAL  S1 = 45   S2 = 100
+  <span class="bad">&gt;&gt;&gt; VERDICT: SUSPICIOUS — alerting on screen</span></pre>
+          </div>
+          <p class="device-hint" style="text-align:left;max-width:none;margin-top:1rem">The full reasoning goes out over USB serial. The screen gets the short version.</p>
+
+          <h3 style="font-family:var(--display);font-weight:600;font-size:1.0625rem;margin:2rem 0 0">Reading the flags</h3>
+          <ul class="flags">
+            <li><code>S</code><span>The two names are the same, or nearly.</span></li>
+            <li><code>B</code><span>The two MAC addresses are nearly identical.</span></li>
+            <li><code>O</code><span>The suspected imposter is open — no encryption.</span></li>
+            <li><code>D</code><span>More than 10 dB of signal between them; one is much closer.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="hardware">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Hardware</p>
+        <h2>Five parts and a battery</h2>
+        <p>Nothing exotic, nothing surface-mount. The ESP32 already has the only radio the job needs.</p>
+      </div>
+
+      <div class="split">
+        <div>
+          <ul class="specs">
+            <li><span class="part">ESP32 dev board</span><span class="role">MCU + 2.4 GHz radio</span></li>
+            <li><span class="part">ST7789 SPI TFT, 170 × 320</span><span class="role">display</span></li>
+            <li><span class="part">DFRobot MP2636</span><span class="role">boost + LiPo charger</span></li>
+            <li><span class="part">LiPo cell</span><span class="role">power</span></li>
+            <li><span class="part">Tactile button</span><span class="role">the entire interface</span></li>
+          </ul>
+
+          <div class="note" style="margin-top:1.75rem">
+            <b>One button, three actions.</b> Hold two seconds from off to power on. A short press starts a scan. Hold two seconds while running and the dog turns in for the night — the ESP32 enters deep sleep, and the same button wakes it.
+          </div>
+        </div>
+
+        <div>
+          <div class="table-scroll">
+            <table>
+              <caption>Wiring</caption>
+              <thead><tr><th>Signal</th><th class="num">GPIO</th></tr></thead>
+              <tbody>
+                <tr><td>TFT CS</td><td class="num">5</td></tr>
+                <tr><td>TFT DC</td><td class="num">16</td></tr>
+                <tr><td>TFT RST</td><td class="num">17</td></tr>
+                <tr><td>TFT backlight</td><td class="num">15</td></tr>
+                <tr><td>SPI MOSI</td><td class="num">23</td></tr>
+                <tr><td>SPI MISO</td><td class="num">19</td></tr>
+                <tr><td>SPI SCK</td><td class="num">18</td></tr>
+                <tr><td>Button<small>Also the wake source, and the board's strapping pin</small></td><td class="num">0</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="build">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Build one</p>
+        <h2>From repository to running dog</h2>
+      </div>
+
+      <div class="split">
+        <ol class="steps">
+          <li>
+            <h3>Get the sketch</h3>
+            <p><code class="inline">git clone https://github.com/Nikolay833/Scoutag</code> and open <code class="inline">Scoutag/Scoutag.ino</code> in the Arduino IDE.</p>
+          </li>
+          <li>
+            <h3>Add the ESP32 boards</h3>
+            <p>Install the <code class="inline">esp32</code> board package through the Boards Manager, then pick your ESP32 board and port.</p>
+          </li>
+          <li>
+            <h3>Install two libraries</h3>
+            <p><code class="inline">Adafruit GFX Library</code> and <code class="inline">Adafruit ST7735 and ST7789 Library</code>, both from the Library Manager.</p>
+          </li>
+          <li>
+            <h3>Wire it up</h3>
+            <p>Follow the pin table above. The button goes between GPIO 0 and ground — the firmware uses the internal pull-up.</p>
+          </li>
+          <li>
+            <h3>Flash, then hold the button</h3>
+            <p>After upload the board goes straight back to sleep. That is intentional: hold the button for two seconds and it wakes into the boot animation.</p>
+          </li>
+        </ol>
+
+        <div>
+          <div class="sec-head" style="margin-bottom:1.5rem">
+            <h2 style="font-size:1.35rem">What it is not</h2>
+          </div>
+          <ul class="caveats">
+            <li><b>It never transmits.</b> No deauth, no association, no capture. Scoutag listens to beacons and does arithmetic.</li>
+            <li><b>It sees one moment.</b> A scan is a snapshot of what was in range when you pressed the button.</li>
+            <li><b>A perfect clone scores nothing.</b> If a fake AP copies the MAC exactly, the two look like one radio and the pair is never flagged.</li>
+            <li><b>Mesh networks look suspicious.</b> Repeaters and multi-AP homes share a name by design and will collect points. The score is a prompt to look closer, not a conviction.</li>
+            <li><b>2.4 GHz only.</b> That is the band the ESP32 has.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <img src="assets/wordmark.png" alt="Scoutag" style="margin-bottom:1rem">
+      <p>An open hardware project by <a href="https://github.com/Nikolay833">Nikolay833</a>. Source, sprites and firmware on <a href="https://github.com/Nikolay833/Scoutag">GitHub</a>.</p>
+    </div>
+    <p>Built to look at your own airwaves. Scan networks you are responsible for, and treat every score as a question rather than an answer.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var screenEl = document.getElementById("screen");
+  var sprite   = document.getElementById("sprite");
+  var boot     = document.getElementById("boot");
+  var lines    = document.getElementById("lines");
+  var press    = document.getElementById("press");
+  var led      = document.getElementById("led");
+  var status   = document.getElementById("status");
+
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var FRAMES = [];
+  for (var f = 1; f <= 19; f++) {
+    FRAMES.push("assets/frame" + (f < 10 ? "0" : "") + f + ".png");
+  }
+  // keep the sprites in memory so a frame swap never flickers
+  FRAMES.forEach(function (src) { var i = new Image(); i.src = src; });
+
+  var IDLE  = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1];   // sitting, small movements
+  var SNIFF = [16, 17, 18, 17];                 // nose down
+  var SLEEP = [11, 12, 13, 14, 15];             // curled up, Z's
+
+  var timers = [];
+  function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+  function clearAll() { timers.forEach(clearTimeout); timers = []; if (loop) { clearInterval(loop); loop = null; } }
+
+  var loop = null;
+  function animate(seq, ms) {
+    var n = 0;
+    setFrame(seq[0]);
+    if (loop) clearInterval(loop);
+    if (reduced) return;
+    loop = setInterval(function () { n = (n + 1) % seq.length; setFrame(seq[n]); }, ms);
+  }
+  function setFrame(i) { sprite.src = FRAMES[i]; sprite.hidden = false; }
+
+  function clearScreen() {
+    lines.innerHTML = "";
+    sprite.hidden = true;
+    boot.hidden = true;
+    if (loop) { clearInterval(loop); loop = null; }
+  }
+
+  // x, y are device pixels; klass adds size or colour
+  function text(str, x, y, klass) {
+    var el = document.createElement("div");
+    el.className = "ln" + (klass ? " " + klass : "");
+    el.style.left = x + "em";
+    el.style.top = y + "em";
+    var s = document.createElement("span");
+    s.textContent = str;
+    el.appendChild(s);
+    lines.appendChild(el);
+    return el;
+  }
+
+  function say(msg) { status.textContent = msg; }
+  function label(msg) { screenEl.setAttribute("aria-label", "Scoutag display — " + msg); }
+
+  var state = "off";
+  var scanCount = 0;
+
+  function powerOn() {
+    clearAll();
+    clearScreen();
+    state = "boot";
+    screenEl.dataset.power = "on";
+    led.dataset.on = "true";
+    boot.hidden = false;
+    say("Booting.");
+    label("boot screen, the Scoutag wordmark");
+
+    later(function () {
+      clearScreen();
+      state = "waking";
+      say("Waking up.");
+      label("the dog waking up");
+      animate(SLEEP, 200);
+      later(function () {
+        if (loop) { clearInterval(loop); loop = null; }
+        wakeStep(11);
+      }, reduced ? 300 : 1600);
+    }, reduced ? 700 : 2600);
+  }
+
+  // the firmware counts frames backwards from 12 down to 1 to stand the dog up
+  function wakeStep(i) {
+    setFrame(i);
+    if (i <= 0) { idle(); return; }
+    later(function () { wakeStep(i - 1); }, reduced ? 12 : 110);
+  }
+
+  function idle() {
+    clearAll();
+    lines.innerHTML = "";
+    state = "idle";
+    animate(IDLE, 220);
+    text("Press once", 165, 55);
+    text("to activate", 165, 78);
+    text("sniff mode!", 165, 101);
+    say("Ready. Short press to scan.");
+    label("the dog sitting, waiting for a short press");
+  }
+
+  function scan() {
+    clearAll();
+    lines.innerHTML = "";
+    state = "scan";
+    animate(SNIFF, 180);
+    text("SNIFFING...", 165, 60);
+    say("Scanning the 2.4 GHz band…");
+    label("scanning for networks");
+
+    scanCount++;
+    var threat = scanCount % 2 === 1;
+
+    later(function () {
+      lines.innerHTML = "";
+      text(threat ? "14 networks" : "9 networks", 165, 52, "small");
+      text("comparing...", 165, 68, "small");
+    }, reduced ? 200 : 1500);
+
+    later(function () {
+      if (threat) { alarm(); } else { allClear(); }
+    }, reduced ? 500 : 3200);
+  }
+
+  function alarm() {
+    clearAll();
+    lines.innerHTML = "";
+    setFrame(1);
+    text("EVIL TWIN", 165, 34, "alarm");
+    text("CoffeeHouse_WiFi", 165, 62, "small");
+    text("A4:2B:8C:11:0D:7F", 165, 80, "small");
+    text("[S B O D]", 165, 104);
+    text("score 100", 165, 130, "small");
+    say("Flagged: an open twin of CoffeeHouse WiFi, 25 dB louder than the real one.");
+    label("alert — evil twin found, flags S B O D");
+    later(idle, reduced ? 900 : 5200);
+  }
+
+  function allClear() {
+    clearAll();
+    lines.innerHTML = "";
+    setFrame(0);
+    text("NO THREATS.", 165, 60);
+    say("Nothing suspicious in range.");
+    label("no threats found");
+    later(idle, reduced ? 600 : 2400);
+  }
+
+  function powerOff() {
+    clearAll();
+    lines.innerHTML = "";
+    state = "off-seq";
+    say("Shutting down.");
+    label("the dog lying down to sleep");
+    var i = 0;
+    (function step() {
+      if (i > 15) {
+        clearScreen();
+        text("Goodbye!", 40, 62, "big");
+        later(function () {
+          clearScreen();
+          screenEl.dataset.power = "off";
+          led.dataset.on = "false";
+          state = "off";
+          say("Powered off. Hold the button to wake it.");
+          label("powered off");
+        }, reduced ? 300 : 1100);
+        return;
+      }
+      setFrame(i);
+      i++;
+      later(step, reduced ? 12 : 90);
+    })();
+  }
+
+  // --- the button itself: press length is the whole interface ---
+  var downAt = 0, holdTimer = null;
+
+  function down() {
+    if (state === "off-seq" || state === "boot" || state === "waking") return;
+    downAt = Date.now();
+    press.dataset.held = "true";
+    holdTimer = setTimeout(function () {
+      press.dataset.held = "false";
+      downAt = 0;
+      if (state === "off") { powerOn(); } else { powerOff(); }
+    }, 2000);
+  }
+
+  function up() {
+    press.dataset.held = "false";
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    if (!downAt) return;
+    var held = Date.now() - downAt;
+    downAt = 0;
+    if (held < 500 && state === "idle") scan();
+    else if (held < 500 && state === "off") say("Hold it for two seconds to wake the dog.");
+  }
+
+  press.addEventListener("mousedown", down);
+  press.addEventListener("touchstart", function (e) { e.preventDefault(); down(); }, { passive: false });
+  window.addEventListener("mouseup", up);
+  window.addEventListener("touchend", up);
+  press.addEventListener("keydown", function (e) {
+    if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); down(); }
+  });
+  press.addEventListener("keyup", function (e) {
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); up(); }
+  });
+  press.addEventListener("click", function (e) { e.preventDefault(); });
+
+  // wake on its own once the device scrolls into view, so the page arrives alive
+  var started = false;
+  function bootOnce() {
+    if (started) return;
+    started = true;
+    powerOn();
+  }
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) { bootOnce(); io.disconnect(); } });
+    }, { threshold: 0.35 });
+    io.observe(screenEl);
+  } else {
+    bootOnce();
+  }
+})();
+</script>
+</body>
+</html>

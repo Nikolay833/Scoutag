@@ -1,6 +1,9 @@
 # Scoutag
 A portable ESP32 device that scans for evil twin WiFi attacks, with an animated dog mascot on a ST7789 TFT display.
 
+## Website
+An about page for the project lives in [`docs/`](docs/) — open `docs/index.html` locally, or publish it by enabling GitHub Pages for this repo with the source set to the `main` branch and the `/docs` folder.
+
 ## Hardware
 ESP32<br>
 ST7789 SPI TFT 170×320px<br>
